@@ -29,7 +29,14 @@ function check(name: string, ok: boolean, note: string) {
 export async function GET() {
   const denied = await requireBooth();
   if (denied) return denied;
+  try {
+    return await status();
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+}
 
+async function status() {
   const checks = [];
   let minter: string | null = null;
   let balance: number | null = null;

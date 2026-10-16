@@ -17,10 +17,23 @@ export default function SetupClient() {
   const [s, setS] = useState<Status | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function load() {
-    const res = await fetch("/api/booth/setup", { cache: "no-store" });
-    if (res.ok) setS(await res.json());
+    try {
+      const res = await fetch("/api/booth/setup", { cache: "no-store" });
+      const text = await res.text();
+      let data: (Status & { error?: string }) | null = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+      if (res.ok && data) {
+        setS(data);
+        setLoadError(null);
+      } else setLoadError(`Setup check failed (${res.status}): ${data?.error ?? text.slice(0, 400)}`);
+    } catch (e) {
+      setLoadError(`Setup check failed: ${(e as Error).message}`);
+    }
   }
   useEffect(() => {
     load();
@@ -62,6 +75,8 @@ export default function SetupClient() {
           Back to booth
         </a>
       </div>
+
+      {loadError && <div className="error" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{loadError}</div>}
 
       {s?.cluster === "devnet" && (
         <div className="panel small">
