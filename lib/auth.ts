@@ -4,8 +4,10 @@ import { createHmac, timingSafeEqual } from "crypto";
 const COOKIE = "sf_booth";
 
 function secret(): string {
-  const pin = process.env.BOOTH_PIN;
-  if (!pin || pin.length < 6) throw new Error("BOOTH_PIN must be set (6+ characters).");
+  const pin = process.env.BOOTH_PIN?.trim();
+  if (!pin) throw new Error("BOOTH_PIN is not set in Vercel (or the site hasn't been redeployed since).");
+  if (pin === "choose-a-long-pin") throw new Error("BOOTH_PIN in Vercel is still the placeholder text — replace it with your own PIN.");
+  if (pin.length < 6) throw new Error("BOOTH_PIN in Vercel is shorter than 6 characters.");
   return pin;
 }
 
@@ -14,7 +16,7 @@ function sign(value: string): string {
 }
 
 export function checkPin(pin: string): boolean {
-  const a = Buffer.from(pin);
+  const a = Buffer.from(pin.trim());
   const b = Buffer.from(secret());
   return a.length === b.length && timingSafeEqual(a, b);
 }
