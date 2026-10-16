@@ -1,5 +1,3 @@
-import { mintPortrait } from "@/lib/mint";
-import { explorerTx, isValidAddress } from "@/lib/solana";
 import { acquireLock, getPortrait, releaseLock, savePortrait } from "@/lib/store";
 
 export const maxDuration = 120;
@@ -11,6 +9,8 @@ export async function POST(req: Request) {
     consent?: boolean;
   };
   if (!consent) return Response.json({ error: "Please tick the consent box first." }, { status: 400 });
+  const { explorerTx, isValidAddress } = await import("@/lib/solana");
+  const { mintPortrait } = await import("@/lib/mint");
   if (!address || !isValidAddress(address)) return Response.json({ error: "That doesn't look like a Solana wallet address." }, { status: 400 });
 
   const p = code ? await getPortrait(code) : null;
