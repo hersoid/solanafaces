@@ -39,7 +39,14 @@ export default function ClaimClient(props: Props) {
       appId={props.privyAppId}
       config={{
         loginMethods: ["wallet", "email"],
-        appearance: { theme: "dark", accentColor: "#14F195", walletChainType: "solana-only", logo: "/solanafaces.jpg" },
+        appearance: {
+          theme: "dark",
+          accentColor: "#14F195",
+          walletChainType: "solana-only",
+          logo: "/solanafaces.jpg",
+          // Always offer the big Solana wallets, even on phones where none are "detected".
+          walletList: ["detected_solana_wallets", "phantom", "solflare", "backpack"],
+        },
         embeddedWallets: { solana: { createOnLogin: "users-without-wallets" }, ethereum: { createOnLogin: "off" } },
         externalWallets: { solana: { connectors: toSolanaWalletConnectors() } },
       }}
@@ -65,6 +72,36 @@ function WithPrivy(props: Props & { onClaimed: (c: Claimed) => void }) {
     connect: (mode) => login({ loginMethods: mode === "email" ? ["email"] : ["wallet"] }),
   };
   return <ClaimView {...props} wallet={wallet} />;
+}
+
+/** On a phone browser, wallets live in their own apps: offer to reopen this page inside them. */
+function WalletAppLinks() {
+  const [show, setShow] = useState(false);
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    const w = window as unknown as { phantom?: unknown; solflare?: unknown; solana?: unknown };
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    setShow(mobile && !w.phantom && !w.solflare && !w.solana);
+    setUrl(window.location.href);
+  }, []);
+  if (!show) return null;
+  const page = encodeURIComponent(url);
+  const ref = encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "");
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="small" style={{ textAlign: "center" }}>
+        Have a wallet app on this phone? Open this page inside it:
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn btn-quiet" style={{ flex: 1, height: 46 }} href={`https://phantom.app/ul/browse/${page}?ref=${ref}`}>
+          Open in Phantom
+        </a>
+        <a className="btn btn-quiet" style={{ flex: 1, height: 46 }} href={`https://solflare.com/ul/v1/browse/${page}?ref=${ref}`}>
+          Open in Solflare
+        </a>
+      </div>
+    </div>
+  );
 }
 
 function ClaimView(props: Props & { onClaimed: (c: Claimed) => void; wallet: WalletApi | null }) {
@@ -254,6 +291,8 @@ function ClaimView(props: Props & { onClaimed: (c: Claimed) => void; wallet: Wal
             )}
           </>
         )}
+
+        {!busy && wallet && !wallet.address && <WalletAppLinks />}
 
         <p className="small" style={{ textAlign: "center", margin: 0 }}>
           We cover the network fee. Email creates a wallet you own and can move to Phantom or Solflare any time.
