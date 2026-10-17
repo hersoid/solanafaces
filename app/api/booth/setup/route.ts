@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   try {
     const { action } = (await req.json()) as { action?: string };
     const { runAction } = await import("@/lib/setupImpl");
-    return await runAction(action);
+    return await runAction(action, new URL(req.url).origin);
   } catch (e) {
     return fail(e);
   }

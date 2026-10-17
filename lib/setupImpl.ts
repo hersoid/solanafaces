@@ -8,14 +8,13 @@ import {
   collectionAddress,
   explorerAddress,
   explorerTx,
+  fetchBytes,
   minterKeypair,
   rpcUrl,
   royaltyBps,
   uploadFile,
   uploadJson,
 } from "@/lib/solana";
-import { readFile } from "fs/promises";
-import path from "path";
 
 import "server-only";
 
@@ -72,12 +71,13 @@ export async function status() {
   });
 }
 
-export async function runAction(action: string | undefined): Promise<Response> {
+export async function runAction(action: string | undefined, origin: string): Promise<Response> {
   if (action === "create-collection") {
     if (collectionAddress()) return Response.json({ error: "A collection is already set. Clear COLLECTION_ADDRESS first if you really want a new one." }, { status: 409 });
     try {
-      const logo = await readFile(path.join(process.cwd(), "public", "solanafaces.jpg"));
-      const image = await uploadFile(new Uint8Array(logo), "solanafaces.jpg", "image/jpeg");
+      // public/ files aren't inside the server function on Vercel, so fetch the logo from the site itself.
+      const logo = await fetchBytes(`${origin}/solanafaces.jpg`);
+      const image = await uploadFile(logo, "solanafaces.jpg", "image/jpeg");
       const uri = await uploadJson(collectionJson(image));
       const { collection, signature } = await createCollectionDirect({ name: COLLECTION_NAME, uri });
       return Response.json({ collection, txUrl: explorerTx(signature) });
