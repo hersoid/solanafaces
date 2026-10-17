@@ -20,6 +20,7 @@ export type Portrait = {
   imageUrl?: string; // temporary Blob URL until minted
   timelapseUrl?: string;
   herod?: string;
+  herodError?: string;
   sitterName?: string;
   // after minting
   asset?: string;

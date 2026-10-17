@@ -11,6 +11,7 @@ type Portrait = {
   status: "reserved" | "captured" | "approved" | "minting" | "claimed";
   imageUrl?: string;
   herod?: string;
+  herodError?: string;
   sitterName?: string;
   lastError?: string;
 };
@@ -464,12 +465,12 @@ function Approval({ p, onDone }: { p: Portrait; onDone: () => void }) {
       </div>
       {text ? (
         <textarea className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} aria-label={`Herod's note for No. ${pad(p.number)}`} />
-      ) : (
+      ) : busy === "redraft" || (!p.herodError && !error) ? (
         <div className="row small">
           <span className="spinner" aria-hidden="true" /> Herod is writing…
         </div>
-      )}
-      {error && <div className="error">{error}</div>}
+      ) : null}
+      {(error || (!text && p.herodError)) && <div className="error">{error ?? p.herodError}</div>}
       <div className="row">
         <button className="btn btn-quiet btn-sm" onClick={redraft} disabled={!!busy}>
           {busy === "redraft" ? "Writing…" : text ? "Another draft" : "Ask Herod"}

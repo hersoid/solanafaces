@@ -13,9 +13,11 @@ export async function POST(req: Request) {
   if (!p?.imageUrl) return Response.json({ error: "Card or photo not found." }, { status: 404 });
   try {
     const herod = await draftHerod(p.imageUrl, p.number);
-    await savePortrait({ ...p, herod });
+    await savePortrait({ ...p, herod, herodError: undefined });
     return Response.json({ herod });
   } catch (e) {
-    return Response.json({ error: `Herod is indisposed: ${(e as Error).message}` }, { status: 502 });
+    const msg = `Herod is indisposed: ${(e as Error).message}`.slice(0, 500);
+    await savePortrait({ ...p, herodError: msg });
+    return Response.json({ error: msg }, { status: 502 });
   }
 }
