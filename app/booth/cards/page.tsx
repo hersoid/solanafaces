@@ -17,7 +17,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
   const site = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
 
   const cards: { p: Portrait; svg: string }[] = [];
-  for (let n = from; n <= to && cards.length < 100; n++) {
+  for (let n = from; n <= to && cards.length < 300; n++) {
     const p = await getByNumber(n);
     if (!p) continue;
     const svg = await QRCode.toString(`${site}/c/${p.code}`, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#0b0b10", light: "#ffffff" } });
@@ -57,9 +57,9 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
           </a>
         </div>
         {!site && <div className="error">Set NEXT_PUBLIC_SITE_URL before printing, or the QR codes won’t point anywhere.</div>}
-        <ReserveForm total={total} />
+        <ReserveForm total={total} from={from} to={to} devnet={process.env.SOLANA_CLUSTER !== "mainnet-beta"} />
         <p className="small">
-          Print on A4 at 100% scale (no “fit to page”), then cut along the dashed lines. Each card’s QR code is unique; never
+          Small cards below are for printing at home on A4 at 100% scale. For the event, use the A6 PDF above. Each card’s QR code is unique; never
           print the same range twice.
         </p>
       </div>

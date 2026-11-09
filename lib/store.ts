@@ -79,10 +79,16 @@ export async function reserveCards(count: number): Promise<Portrait[]> {
   const first = last - count + 1;
   const out: Portrait[] = [];
   for (let n = first; n <= last; n++) {
-    const p: Portrait = { code: newCode(), number: n, status: "reserved", createdAt: new Date().toISOString() };
-    await r.set(k.portrait(p.code), p);
-    await r.set(k.byNumber(n), p.code);
-    out.push(p);
+    out.push({ code: newCode(), number: n, status: "reserved", createdAt: new Date().toISOString() });
+  }
+  // Written in batches of 50 so a 250-card print run takes seconds, not a minute.
+  for (let i = 0; i < out.length; i += 50) {
+    const pipe = r.pipeline();
+    for (const p of out.slice(i, i + 50)) {
+      pipe.set(k.portrait(p.code), p);
+      pipe.set(k.byNumber(p.number), p.code);
+    }
+    await pipe.exec();
   }
   return out;
 }
@@ -118,4 +124,33 @@ export async function acquireLock(code: string, seconds = 120): Promise<boolean>
 
 export async function releaseLock(code: string): Promise<void> {
   await redis().del(k.lock(code));
+}
+
+/** Cards from..to (inclusive) in number order, fetched in bulk. */
+export async function getRange(from: number, to: number): Promise<Portrait[]> {
+  const r = redis();
+  const nums = Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
+  const out: Portrait[] = [];
+  for (let i = 0; i < nums.length; i += 100) {
+    const chunk = nums.slice(i, i + 100);
+    const codes = await r.mget<(string | null)[]>(...chunk.map(k.byNumber));
+    const keys = codes.filter((c): c is string => !!c).map(k.portrait);
+    if (!keys.length) continue;
+    const ps = await r.mget<(Portrait | null)[]>(...keys);
+    out.push(...ps.filter((p): p is Portrait => !!p));
+  }
+  return out.sort((a, b) => a.number - b.number);
+}
+
+/** Wipes every card, portrait and counter so numbering starts again at 001. */
+export async function resetAll(): Promise<number> {
+  const r = redis();
+  let cursor: string | number = 0;
+  let deleted = 0;
+  do {
+    const [next, keys] = (await r.scan(cursor, { match: "sf:*", count: 500 })) as [string | number, string[]];
+    cursor = next;
+    if (keys.length) deleted += await r.del(...keys);
+  } while (String(cursor) !== "0");
+  return deleted;
 }
