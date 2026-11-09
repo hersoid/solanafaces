@@ -8,7 +8,7 @@ import { stash, type Stashed } from "./stash";
 type Portrait = {
   code: string;
   number: number;
-  status: "reserved" | "captured" | "approved" | "minting" | "claimed";
+  status: "reserved" | "captured" | "approved" | "minting" | "claimed" | "void";
   imageUrl?: string;
   herod?: string;
   herodError?: string;
@@ -129,7 +129,10 @@ export default function BoothClient() {
             }),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
+          if (!res.ok) {
+            if (data.final) await stash.remove(item.id); // e.g. card already claimed: retrying will never work
+            throw new Error(data.error);
+          }
           await stash.remove(item.id);
           // ask Herod in the background
           fetch("/api/booth/herod", {
@@ -389,6 +392,19 @@ export default function BoothClient() {
           {pending.map((p) => (
             <div key={p.id} className="panel small">
               Uploading {p.number ? `No. ${pad(p.number)}` : "drawing"}…{p.error && <div style={{ color: "#ffb3b3" }}>{p.error}</div>}
+              {p.error && (
+                <button
+                  className="btn btn-quiet btn-sm"
+                  style={{ marginTop: 8 }}
+                  onClick={async () => {
+                    if (!confirm("Discard this drawing from the iPad? It hasn't been saved to any card.")) return;
+                    await stash.remove(p.id);
+                    setPending(await stash.all());
+                  }}
+                >
+                  Discard
+                </button>
+              )}
             </div>
           ))}
 
@@ -408,6 +424,24 @@ export default function BoothClient() {
                     {p.status === "approved" ? "ready to claim" : p.status}
                   </span>
                 </div>
+                {(p.status === "captured" || p.status === "approved") && (
+                  <button
+                    className="small"
+                    style={{ marginTop: 6, background: "none", border: 0, padding: 0, color: "#ffb3b3", textDecoration: "underline", cursor: "pointer" }}
+                    onClick={async () => {
+                      if (!confirm(`Withdraw card No. ${pad(p.number)}? Its photo and timelapse are deleted and the card can never be claimed.`)) return;
+                      const res = await fetch("/api/booth/portrait", {
+                        method: "PATCH",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ code: p.code, void: true }),
+                      });
+                      if (!res.ok) alert((await res.json()).error);
+                      refresh();
+                    }}
+                  >
+                    Void this card
+                  </button>
+                )}
                 {p.lastError && p.status !== "claimed" && (
                   <div className="small" style={{ color: "#ffb3b3", marginTop: 6 }}>
                     Last claim attempt failed: {p.lastError}

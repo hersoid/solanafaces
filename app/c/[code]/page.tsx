@@ -31,6 +31,21 @@ export default async function ClaimPage({ params }: { params: Promise<{ code: st
     timeZone: "Europe/London",
   });
 
+  if (p.status === "void") {
+    return (
+      <main className="wrap">
+        <Header />
+        <section className="section stack" style={{ paddingTop: 32 }}>
+          <div className="label">Portrait No. {pad(p.number)}</div>
+          <h1 className="h1">This card has been withdrawn.</h1>
+          <p style={{ margin: 0, color: "var(--soft)", lineHeight: 1.55 }}>
+            If you sat for a portrait, come back to the booth at Solana Spaces and we&rsquo;ll sort you out.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   if (p.status === "reserved" || p.status === "captured") {
     return (
       <main className="wrap">

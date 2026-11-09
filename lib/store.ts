@@ -8,8 +8,9 @@ import { randomBytes } from "crypto";
  * approved  → Nick approved Herod's note; visitor can claim
  * minting   → claim in progress (lock)
  * claimed   → on-chain, in the visitor's wallet
+ * void      → withdrawn by Nick; photo deleted, can never be claimed
  */
-export type PortraitStatus = "reserved" | "captured" | "approved" | "minting" | "claimed";
+export type PortraitStatus = "reserved" | "captured" | "approved" | "minting" | "claimed" | "void";
 
 export type Portrait = {
   code: string; // secret token printed in the QR

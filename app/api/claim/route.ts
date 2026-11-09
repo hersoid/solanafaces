@@ -15,6 +15,7 @@ export async function POST(req: Request) {
 
   const p = code ? await getPortrait(code) : null;
   if (!p) return Response.json({ error: "We can't find this card." }, { status: 404 });
+  if (p.status === "void") return Response.json({ error: "This card has been withdrawn." }, { status: 410 });
   if (p.status === "claimed") return Response.json({ error: "This portrait has already been claimed.", owner: p.owner }, { status: 409 });
   if (p.status !== "approved")
     return Response.json({ error: "Your portrait isn't ready yet — the critic is still writing. Try again in a few minutes." }, { status: 425 });
