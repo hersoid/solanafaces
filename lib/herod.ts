@@ -57,5 +57,15 @@ export async function draftHerod(imageUrl: string, number: number): Promise<stri
     .map((b) => b.text)
     .join("")
     .trim();
+  if (!text) {
+    console.error("herod empty", JSON.stringify({ stop: msg.stop_reason, model: msg.model, types: msg.content.map((b) => b.type) }));
+    const why =
+      msg.stop_reason === "refusal"
+        ? "the model declined this image"
+        : msg.stop_reason === "max_tokens"
+          ? "he ran out of room before writing"
+          : `the model returned no text (stop reason: ${msg.stop_reason ?? "unknown"}, model: ${msg.model})`;
+    throw new Error(`Empty note: ${why}.`);
+  }
   return text.replace(/^["“]|["”]$/g, "");
 }
