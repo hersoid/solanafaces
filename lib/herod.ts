@@ -33,7 +33,8 @@ Do not reuse the example's phrases or its references. Each note must be fresh an
 export async function draftHerod(imageUrl: string, number: number): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
-  const client = new Anthropic({ apiKey });
+  // Fail inside Vercel's 60 s limit so the booth hears about it, instead of the request being cut off silently.
+  const client = new Anthropic({ apiKey, timeout: 45_000, maxRetries: 0 });
   const msg = await client.messages.create({
     model: process.env.HEROD_MODEL || "claude-sonnet-5-5",
     max_tokens: 600,

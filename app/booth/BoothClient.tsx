@@ -12,6 +12,7 @@ type Portrait = {
   imageUrl?: string;
   herod?: string;
   herodError?: string;
+  capturedAt?: string;
   sitterName?: string;
   lastError?: string;
 };
@@ -427,18 +428,35 @@ function Approval({ p, onDone }: { p: Portrait; onDone: () => void }) {
 
   useEffect(() => setText(p.herod ?? ""), [p.herod]);
 
+  // If Herod's automatic first attempt has said nothing for 90 s, it was cut off: stop the spinner and say so.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+  const silent = !text && !p.herodError && !error && !!p.capturedAt && now - Date.parse(p.capturedAt) > 90_000;
+
   async function redraft() {
     setBusy("redraft");
     setError(null);
-    const res = await fetch("/api/booth/herod", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: p.code }),
-    });
-    const data = await res.json();
-    setBusy(null);
-    if (res.ok) setText(data.herod);
-    else setError(data.error);
+    try {
+      const res = await fetch("/api/booth/herod", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: p.code }),
+      });
+      const raw = await res.text();
+      let data: { herod?: string; error?: string } = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {}
+      if (res.ok && data.herod) setText(data.herod);
+      else setError(data.error ?? `Herod didn't answer (server said ${res.status}${res.status === 504 ? ": timed out" : ""}). Try again.`);
+    } catch (e) {
+      setError(`Couldn't reach Herod: ${(e as Error).message}. Check the connection and try again.`);
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function approve() {
@@ -465,12 +483,15 @@ function Approval({ p, onDone }: { p: Portrait; onDone: () => void }) {
       </div>
       {text ? (
         <textarea className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} aria-label={`Herod's note for No. ${pad(p.number)}`} />
-      ) : busy === "redraft" || (!p.herodError && !error) ? (
+      ) : busy === "redraft" || (!p.herodError && !error && !silent) ? (
         <div className="row small">
           <span className="spinner" aria-hidden="true" /> Herod is writing…
         </div>
       ) : null}
       {(error || (!text && p.herodError)) && <div className="error">{error ?? p.herodError}</div>}
+      {silent && busy !== "redraft" && (
+        <div className="error">Herod hasn&rsquo;t answered after 90 seconds. Tap Ask Herod to try again.</div>
+      )}
       <div className="row">
         <button className="btn btn-quiet btn-sm" onClick={redraft} disabled={!!busy}>
           {busy === "redraft" ? "Writing…" : text ? "Another draft" : "Ask Herod"}
