@@ -12,7 +12,7 @@ export default function ReserveForm({
   to: number;
   devnet: boolean;
 }) {
-  const [count, setCount] = useState(250);
+  const [count, setCount] = useState(50);
   const [busy, setBusy] = useState<"make" | "reset" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -91,9 +91,6 @@ export default function ReserveForm({
             Show all {total}
           </a>
         )}
-        <button className="btn btn-quiet btn-sm" onClick={() => window.print()}>
-          Print small cards at home
-        </button>
       </div>
 
       {devnet && total > 0 && (
