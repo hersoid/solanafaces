@@ -134,12 +134,6 @@ export default function BoothClient() {
             throw new Error(data.error);
           }
           await stash.remove(item.id);
-          // ask Herod in the background
-          fetch("/api/booth/herod", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ code: data.portrait.code }),
-          }).finally(refresh);
         } catch (e) {
           setPending((list) => list.map((p) => (p.id === item.id ? { ...p, error: (e as Error).message } : p)));
         }
@@ -223,7 +217,6 @@ export default function BoothClient() {
     processStash();
   }
 
-  const toApprove = portraits.filter((p) => p.status === "captured");
   const cardsLeft = next ? printed - next + 1 : 0;
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
@@ -383,11 +376,7 @@ export default function BoothClient() {
 
         {/* approvals + recent */}
         <aside style={{ flex: "1 1 320px", minWidth: 0 }} className="stack">
-          <div className="label">Herod awaiting your approval ({toApprove.length})</div>
-          {toApprove.length === 0 && <div className="small">Nothing waiting.</div>}
-          {toApprove.map((p) => (
-            <Approval key={p.code} p={p} onDone={refresh} />
-          ))}
+          {/* Herod is switched off: photos go straight to "ready to claim". */}
 
           {pending.map((p) => (
             <div key={p.id} className="panel small">

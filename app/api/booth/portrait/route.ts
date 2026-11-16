@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
   const updated = {
     ...card,
-    status: "captured" as const,
+    status: "approved" as const, // Herod is switched off: a saved photo is ready to claim at once
     herod: undefined,
     herodError: undefined,
     imageUrl: body.imageUrl,

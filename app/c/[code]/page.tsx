@@ -46,7 +46,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ code: st
     );
   }
 
-  if (p.status === "reserved" || p.status === "captured") {
+  if (p.status === "reserved") {
     return (
       <main className="wrap">
         <Header />

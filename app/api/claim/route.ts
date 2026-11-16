@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!p) return Response.json({ error: "We can't find this card." }, { status: 404 });
   if (p.status === "void") return Response.json({ error: "This card has been withdrawn." }, { status: 410 });
   if (p.status === "claimed") return Response.json({ error: "This portrait has already been claimed.", owner: p.owner }, { status: 409 });
-  if (p.status !== "approved")
+  if (p.status !== "approved" && p.status !== "captured")
     return Response.json({ error: "Your portrait isn't ready yet — the critic is still writing. Try again in a few minutes." }, { status: 425 });
 
   if (!(await acquireLock(p.code))) return Response.json({ error: "Already minting — hang on a moment." }, { status: 409 });

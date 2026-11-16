@@ -24,7 +24,7 @@ export function assetJson(p: Portrait, imageUri: string, videoUri?: string) {
   return {
     name: assetName(p),
     symbol: "SFACE",
-    description: `${p.herod ?? ""}\n\n— Herod Hersché\n\nGraphite on paper, drawn from life by ${ARTIST} at ${VENUE}, ${sittingDate(p)}. One of one; the paper original was given to the sitter.`.trim(),
+    description: `${p.herod ? `${p.herod}\n\n— Herod Hersché\n\n` : ""}Graphite on paper, drawn from life by ${ARTIST} at ${VENUE}, ${sittingDate(p)}. One of one; the paper original was given to the sitter.`.trim(),
     image: imageUri,
     ...(videoUri ? { animation_url: videoUri } : {}),
     external_url: "https://hersoid.com",
@@ -34,7 +34,7 @@ export function assetJson(p: Portrait, imageUri: string, videoUri?: string) {
       { trait_type: "Medium", value: "Graphite on paper" },
       { trait_type: "Venue", value: "Solana Spaces, Breakpoint London" },
       { trait_type: "Date", value: sittingDate(p) },
-      { trait_type: "Critic", value: "Herod Hersché" },
+      ...(p.herod ? [{ trait_type: "Critic", value: "Herod Hersché" }] : []),
       ...(p.sitterName ? [{ trait_type: "Sitter", value: p.sitterName }] : []),
     ],
     properties: { category: videoUri ? "video" : "image", files },
