@@ -51,12 +51,27 @@ export default function BoothClient() {
   const [online, setOnline] = useState(true);
 
   // ── server state ──
+  // The lowest card number the booth may use next. Set the moment a drawing is saved, so a
+  // slow upload can never make the counter fall back and a new sitting overwrite the last one.
+  const floor = useRef<number>(0);
+  useEffect(() => {
+    try {
+      floor.current = Number(localStorage.getItem("sf-next-floor")) || 0;
+    } catch {}
+  }, []);
+  const setFloor = (n: number) => {
+    floor.current = n;
+    try {
+      localStorage.setItem("sf-next-floor", String(n));
+    } catch {}
+  };
+
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/booth/portrait", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setNext(data.next);
+      setNext(Math.max(data.next, floor.current));
       setPrinted(data.printed);
       setPortraits(data.portraits);
     } catch {}
@@ -210,6 +225,13 @@ export default function BoothClient() {
     if (number) {
       setLastCard(number);
       setNext(number + 1);
+      setFloor(number + 1);
+      // Tell the server straight away too (best effort; offline, the upload does it later).
+      fetch("/api/booth/portrait", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ advanceTo: number + 1 }),
+      }).catch(() => {});
     }
     frames.current = [];
     setStage("idle");
@@ -289,6 +311,8 @@ export default function BoothClient() {
                       onClick={async () => {
                         const v = Number(prompt("Use which card number next?", String(next ?? 1)));
                         if (!v || v < 1) return;
+                        setFloor(v); // a manual choice wins, even going backwards
+                        setNext(v);
                         await fetch("/api/booth/portrait", {
                           method: "PATCH",
                           headers: { "content-type": "application/json" },

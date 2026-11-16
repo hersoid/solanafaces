@@ -76,8 +76,14 @@ export async function PATCH(req: Request) {
     sitterName?: string;
     approve?: boolean;
     setNext?: number;
+    advanceTo?: number;
     void?: boolean;
   };
+  // Only ever moves the counter forward (used the moment the booth saves a drawing).
+  if (typeof body.advanceTo === "number" && body.advanceTo >= 1) {
+    if (Math.floor(body.advanceTo) > (await nextCardNumber())) await setNextCardNumber(Math.floor(body.advanceTo));
+    return Response.json({ ok: true });
+  }
   if (typeof body.setNext === "number" && body.setNext >= 1) {
     await setNextCardNumber(Math.floor(body.setNext));
     return Response.json({ ok: true });
