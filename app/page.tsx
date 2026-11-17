@@ -12,8 +12,7 @@ export default function Home() {
         <h1 className="h1">A human photo booth.</h1>
         <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: "var(--soft)" }}>
           Sit for HERSOID at Solana Spaces, Olympia London, 15–17 November 2026. Ten minutes, graphite on paper, drawn from
-          life. You take the original home; the portrait, its timelapse and a note from the critic Herod Hersché are minted
-          to your wallet.
+          life. You take the original home, and the portrait is minted to your wallet as a Solana 1/1.
         </p>
         <p className="small">Got a claim card? Scan its QR code with your phone camera.</p>
       </section>

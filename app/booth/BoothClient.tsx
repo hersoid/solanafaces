@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
-import { encodeTimelapse, grabFrame, normalizePhoto } from "./timelapse";
+import { grabFrame, normalizePhoto } from "./timelapse";
 import { stash, type Stashed } from "./stash";
 
 type Portrait = {
@@ -17,24 +17,18 @@ type Portrait = {
   lastError?: string;
 };
 
-type Stage = "idle" | "drawing" | "photo" | "encoding";
+type Stage = "idle" | "photo";
 
 const pad = (n: number) => String(n).padStart(3, "0");
 
 export default function BoothClient() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const frames = useRef<Blob[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [camError, setCamError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
-  const [interval, setIntervalSec] = useState(4);
-  const [elapsed, setElapsed] = useState(0);
-  const [frameCount, setFrameCount] = useState(0);
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [sitter, setSitter] = useState("");
-  const [progress, setProgress] = useState(0);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!photo) return setPhotoUrl(null);
@@ -170,53 +164,27 @@ export default function BoothClient() {
     if (online) processStash();
   }, [online, processStash]);
 
-  // ── the sitting ──
-  function startSitting() {
-    frames.current = [];
-    setFrameCount(0);
-    setElapsed(0);
-    setPhoto(null);
-    setSitter("");
-    setStage("drawing");
-    const started = Date.now();
-    let lastShot = 0;
-    timer.current = setInterval(async () => {
-      const now = Date.now();
-      setElapsed(Math.floor((now - started) / 1000));
-      if (now - lastShot >= interval * 1000 && videoRef.current) {
-        lastShot = now;
-        try {
-          frames.current.push(await grabFrame(videoRef.current, 960, 0.75));
-          setFrameCount(frames.current.length);
-        } catch {}
-      }
-    }, 500);
-  }
-
-  function finishDrawing() {
-    if (timer.current) clearInterval(timer.current);
+  // ── the sitting: photograph the finished drawing, then save ──
+  function newPhoto(b: Blob) {
+    setPhoto(b);
     setStage("photo");
   }
 
   async function useCameraFrame() {
-    if (videoRef.current) setPhoto(await grabFrame(videoRef.current, 2400, 0.92));
+    if (videoRef.current) newPhoto(await grabFrame(videoRef.current, 2400, 0.92));
+  }
+
+  function retake() {
+    setPhoto(null);
+    setStage("idle");
   }
 
   async function save() {
     if (!photo) return;
-    setStage("encoding");
-    setProgress(0);
-    let timelapse: Blob | null = null;
-    try {
-      timelapse = await encodeTimelapse(frames.current, photo, { onProgress: setProgress });
-    } catch {
-      timelapse = null; // the drawing still goes through without a film
-    }
     const number = next ?? undefined;
     const item: Stashed & { number?: number } = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       photo,
-      timelapse: timelapse ?? undefined,
       sitterName: sitter.trim() || undefined,
       createdAt: Date.now(),
       number,
@@ -233,15 +201,13 @@ export default function BoothClient() {
         body: JSON.stringify({ advanceTo: number + 1 }),
       }).catch(() => {});
     }
-    frames.current = [];
-    setStage("idle");
+    setSitter("");
     setPhoto(null);
+    setStage("idle");
     processStash();
   }
 
   const cardsLeft = next ? printed - next + 1 : 0;
-  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
-  const ss = String(elapsed % 60).padStart(2, "0");
 
   return (
     <main className="wide">
@@ -286,11 +252,6 @@ export default function BoothClient() {
             {stage === "photo" && photo && (
               <img src={photoUrl ?? undefined} alt="Final photo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
             )}
-            {stage === "drawing" && (
-              <div className="mono" style={{ position: "absolute", top: 12, left: 12, padding: "6px 10px", borderRadius: 6, background: "rgba(0,0,0,.6)", fontSize: 13 }}>
-                ● REC {mm}:{ss} · {frameCount} frames
-              </div>
-            )}
             {camError && (
               <div className="error" style={{ position: "absolute", inset: 16, height: "fit-content" }}>
                 {camError}
@@ -325,63 +286,45 @@ export default function BoothClient() {
                     </button>
                   </div>
                 </div>
-                <label className="label row" style={{ gap: 8 }}>
-                  Frame every
-                  <select className="input" style={{ width: 90, height: 40 }} value={interval} onChange={(e) => setIntervalSec(Number(e.target.value))}>
-                    {[2, 3, 4, 6, 8].map((s) => (
-                      <option key={s} value={s}>
-                        {s}s
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
               {next && cardsLeft <= 5 && (
                 <div className="error">
                   {cardsLeft <= 0 ? "No printed cards left." : `Only ${cardsLeft} printed card${cardsLeft === 1 ? "" : "s"} left.`} Print more from Cards.
                 </div>
               )}
-              <button className="btn btn-primary" onClick={startSitting} disabled={!!camError}>
-                Start sitting
-              </button>
-            </div>
-          )}
-
-          {stage === "drawing" && (
-            <button className="btn btn-primary" onClick={finishDrawing}>
-              Finished drawing
-            </button>
-          )}
-
-          {stage === "photo" && (
-            <div className="stack">
               <div className="row" style={{ gap: 10 }}>
-                <button className="btn btn-quiet" style={{ flex: 1 }} onClick={() => fileRef.current?.click()}>
-                  Take final photo
+                <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => fileRef.current?.click()}>
+                  Photograph the drawing
                 </button>
-                <button className="btn btn-quiet" style={{ flex: 1 }} onClick={useCameraFrame}>
+                <button className="btn btn-quiet" style={{ flex: 1 }} onClick={useCameraFrame} disabled={!!camError}>
                   Use live frame
                 </button>
               </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                hidden
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setPhoto(await normalizePhoto(f));
-                  e.target.value = "";
-                }}
-              />
+            </div>
+          )}
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) newPhoto(await normalizePhoto(f));
+              e.target.value = "";
+            }}
+          />
+
+          {stage === "photo" && (
+            <div className="stack">
               <label className="label" htmlFor="sitter">
                 Sitter’s first name or handle (optional, goes on-chain)
               </label>
               <input id="sitter" className="input" value={sitter} onChange={(e) => setSitter(e.target.value)} maxLength={40} />
               <div className="row" style={{ gap: 10 }}>
-                <button className="btn btn-quiet" style={{ flex: 1 }} onClick={() => setStage("drawing")}>
-                  Back
+                <button className="btn btn-quiet" style={{ flex: 1 }} onClick={retake}>
+                  Retake
                 </button>
                 <button className="btn btn-primary" style={{ flex: 2 }} disabled={!photo} onClick={save}>
                   Save portrait{next ? ` to card No. ${pad(next)}` : ""}
@@ -390,12 +333,6 @@ export default function BoothClient() {
             </div>
           )}
 
-          {stage === "encoding" && (
-            <div className="panel row">
-              <span className="spinner" aria-hidden="true" /> Making the timelapse… {Math.round(progress * 100)}%
-              <span className="small">Keep this screen open.</span>
-            </div>
-          )}
         </section>
 
         {/* approvals + recent */}
@@ -442,7 +379,7 @@ export default function BoothClient() {
                     className="small"
                     style={{ marginTop: 6, background: "none", border: 0, padding: 0, color: "#ffb3b3", textDecoration: "underline", cursor: "pointer" }}
                     onClick={async () => {
-                      if (!confirm(`Withdraw card No. ${pad(p.number)}? Its photo and timelapse are deleted and the card can never be claimed.`)) return;
+                      if (!confirm(`Withdraw card No. ${pad(p.number)}? Its photo is deleted and the card can never be claimed.`)) return;
                       const res = await fetch("/api/booth/portrait", {
                         method: "PATCH",
                         headers: { "content-type": "application/json" },
